@@ -8,6 +8,11 @@ struct AddHabitView: View {
     @State private var selectedIcon: String = "star.fill"
     @State private var selectedFrequency: HabitFrequency = .daily
     
+    // New feature states
+    @State private var targetCompletionCount: Int = 100
+    @State private var enableReminder: Bool = false
+    @State private var reminderTime: Date = Date()
+    
     let icons = [
         "star.fill", "heart.fill", "drop.fill", "flame.fill",
         "book.fill", "bicycle", "figure.walk", "moon.stars.fill",
@@ -19,6 +24,21 @@ struct AddHabitView: View {
             Form {
                 Section(header: Text("Habit Details")) {
                     TextField("Habit Name", text: $habitName)
+                }
+                
+                Section(header: Text("Goals & Reminders")) {
+                    Stepper("Target Completions: \(targetCompletionCount)", value: $targetCompletionCount, in: 10...1000, step: 10)
+                    
+                    Toggle("Daily Reminder", isOn: $enableReminder)
+                        .onChange(of: enableReminder) { oldValue, newValue in
+                            if newValue {
+                                viewModel.requestNotificationPermission()
+                            }
+                        }
+                    
+                    if enableReminder {
+                        DatePicker("Reminder Time", selection: $reminderTime, displayedComponents: .hourAndMinute)
+                    }
                 }
                 
                 Section(header: Text("Frequency")) {
@@ -64,7 +84,13 @@ struct AddHabitView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         if !habitName.trimmingCharacters(in: .whitespaces).isEmpty {
-                            viewModel.addHabit(name: habitName, icon: selectedIcon, frequency: selectedFrequency)
+                            viewModel.addHabit(
+                                name: habitName,
+                                icon: selectedIcon,
+                                frequency: selectedFrequency,
+                                targetCompletionCount: targetCompletionCount,
+                                preferredReminderTime: enableReminder ? reminderTime : nil
+                            )
                             dismiss()
                         }
                     }

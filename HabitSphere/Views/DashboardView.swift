@@ -59,9 +59,12 @@ struct DashboardView: View {
                         } else {
                             LazyVStack(spacing: 16) {
                                 ForEach(viewModel.habits) { habit in
-                                    HabitCardView(habit: habit) {
-                                        viewModel.toggleHabit(habit)
+                                    NavigationLink(destination: HabitDetailedAnalyticsView(habit: habit)) {
+                                        HabitCardView(habit: habit) {
+                                            viewModel.toggleHabit(habit)
+                                        }
                                     }
+                                    .buttonStyle(PlainButtonStyle())
                                 }
                             }
                             .padding(.horizontal)
