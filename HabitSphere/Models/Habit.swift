@@ -6,7 +6,6 @@ enum HabitFrequency: String, Codable, CaseIterable {
     case weekends = "Weekends"
 }
 
-
 /// Represents a single habit to be tracked.
 struct Habit: Identifiable, Codable, Hashable {
     var id: UUID = UUID()
@@ -15,8 +14,66 @@ struct Habit: Identifiable, Codable, Hashable {
     var frequency: HabitFrequency = .daily
     var createdAt: Date
     
-    /// Stores the dates when the habit was completed in "yyyy-MM-dd" format
-    var completedDates: Set<String> = []
+    // New Goals & Reminders fields
+    var targetCompletionCount: Int = 100
+    var preferredReminderTime: Date? = nil
+    
+    /// Full log of every timestamp this habit was completed
+    var completionHistory: [Date] = []
+    
+    /// Legacy field used only during decoding for migration
+    private var legacyCompletedDates: Set<String>? = nil
+    
+    // Custom coding keys to handle the migration
+    enum CodingKeys: String, CodingKey {
+        case id, name, icon, frequency, createdAt, targetCompletionCount, preferredReminderTime, completionHistory
+        case legacyCompletedDates = "completedDates"
+    }
+    
+    init(id: UUID = UUID(), name: String, icon: String, frequency: HabitFrequency = .daily, createdAt: Date = Date(), targetCompletionCount: Int = 100, preferredReminderTime: Date? = nil, completionHistory: [Date] = []) {
+        self.id = id
+        self.name = name
+        self.icon = icon
+        self.frequency = frequency
+        self.createdAt = createdAt
+        self.targetCompletionCount = targetCompletionCount
+        self.preferredReminderTime = preferredReminderTime
+        self.completionHistory = completionHistory
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        name = try container.decode(String.self, forKey: .name)
+        icon = try container.decode(String.self, forKey: .icon)
+        frequency = try container.decodeIfPresent(HabitFrequency.self, forKey: .frequency) ?? .daily
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        
+        targetCompletionCount = try container.decodeIfPresent(Int.self, forKey: .targetCompletionCount) ?? 100
+        preferredReminderTime = try container.decodeIfPresent(Date.self, forKey: .preferredReminderTime)
+        
+        if let history = try container.decodeIfPresent([Date].self, forKey: .completionHistory) {
+            completionHistory = history
+        } else if let legacyDates = try container.decodeIfPresent(Set<String>.self, forKey: .legacyCompletedDates) {
+            // Migrate legacy data by parsing old string formats
+            completionHistory = legacyDates.compactMap { DateFormatter.habitDateFormatter.date(from: $0) }
+        } else {
+            completionHistory = []
+        }
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(icon, forKey: .icon)
+        try container.encode(frequency, forKey: .frequency)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(targetCompletionCount, forKey: .targetCompletionCount)
+        try container.encodeIfPresent(preferredReminderTime, forKey: .preferredReminderTime)
+        try container.encode(completionHistory, forKey: .completionHistory)
+    }
     
     /// Calculate the current streak based on continuous days completed up to today or yesterday
     var currentStreak: Int {
@@ -24,7 +81,6 @@ struct Habit: Identifiable, Codable, Hashable {
         let calendar = Calendar.current
         var checkDate = Date()
         
-        // If today is not completed, we should check if yesterday was completed to see if the streak is still alive
         if !isCompleted(on: checkDate) {
             checkDate = calendar.date(byAdding: .day, value: -1, to: checkDate) ?? Date()
         }
@@ -38,19 +94,17 @@ struct Habit: Identifiable, Codable, Hashable {
     }
     
     var longestStreak: Int {
-        // Compute longest consecutive days
-        guard !completedDates.isEmpty else { return 0 }
+        let calendar = Calendar.current
+        let uniqueDays = Set(completionHistory.map { calendar.startOfDay(for: $0) }).sorted()
         
-        let sortedDates = completedDates.compactMap { DateFormatter.habitDateFormatter.date(from: $0) }.sorted()
-        guard !sortedDates.isEmpty else { return 0 }
+        guard !uniqueDays.isEmpty else { return 0 }
         
         var maxStreak = 1
         var currentS = 1
-        let calendar = Calendar.current
         
-        for i in 1..<sortedDates.count {
-            let previous = calendar.startOfDay(for: sortedDates[i-1])
-            let current = calendar.startOfDay(for: sortedDates[i])
+        for i in 1..<uniqueDays.count {
+            let previous = uniqueDays[i-1]
+            let current = uniqueDays[i]
             let daysBetween = calendar.dateComponents([.day], from: previous, to: current).day ?? 0
             
             if daysBetween == 1 {
@@ -65,16 +119,16 @@ struct Habit: Identifiable, Codable, Hashable {
     }
     
     func isCompleted(on date: Date) -> Bool {
-        let dateString = DateFormatter.habitDateFormatter.string(from: date)
-        return completedDates.contains(dateString)
+        let calendar = Calendar.current
+        return completionHistory.contains { calendar.isDate($0, inSameDayAs: date) }
     }
     
     mutating func toggleCompletion(on date: Date) {
-        let dateString = DateFormatter.habitDateFormatter.string(from: date)
-        if completedDates.contains(dateString) {
-            completedDates.remove(dateString)
+        let calendar = Calendar.current
+        if let index = completionHistory.firstIndex(where: { calendar.isDate($0, inSameDayAs: date) }) {
+            completionHistory.remove(at: index)
         } else {
-            completedDates.insert(dateString)
+            completionHistory.append(date)
         }
     }
 }

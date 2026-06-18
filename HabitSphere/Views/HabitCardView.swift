@@ -45,23 +45,21 @@ struct HabitCardView: View {
             
             Spacer()
             
-            Button(action: {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                    isAnimating = true
-                    toggleCompletion()
+            Image(systemName: isCompletedToday ? "checkmark.circle.fill" : "circle")
+                .resizable()
+                .frame(width: 28, height: 28)
+                .foregroundColor(isCompletedToday ? .indigo : .gray.opacity(0.5))
+                .scaleEffect(isAnimating ? 1.2 : 1.0)
+                .onTapGesture {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        isAnimating = true
+                        toggleCompletion()
+                    }
+                    
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        isAnimating = false
+                    }
                 }
-                
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    isAnimating = false
-                }
-            }) {
-                Image(systemName: isCompletedToday ? "checkmark.circle.fill" : "circle")
-                    .resizable()
-                    .frame(width: 28, height: 28)
-                    .foregroundColor(isCompletedToday ? .indigo : .gray.opacity(0.5))
-                    .scaleEffect(isAnimating ? 1.2 : 1.0)
-            }
-            .buttonStyle(PlainButtonStyle())
         }
         .padding()
         .background(Color(.systemBackground))

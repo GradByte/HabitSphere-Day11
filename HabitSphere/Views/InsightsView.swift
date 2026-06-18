@@ -21,6 +21,9 @@ struct InsightsView: View {
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
                         StatCard(title: "Total Habits", value: "\(viewModel.totalHabits)", icon: "list.bullet.clipboard")
                         StatCard(title: "Longest Streak", value: "\(viewModel.longestStreakOverall)", icon: "flame.fill", color: .orange)
+                        
+                        StatCard(title: "Best Day", value: viewModel.globalMostProductiveDay().prefix(3).description, icon: "calendar.badge.clock", color: .green)
+                        StatCard(title: "Best Time", value: viewModel.bestPerformingTimeOfDay().rawValue, icon: "clock.fill", color: .blue)
                     }
                     .padding(.horizontal)
                     

@@ -32,4 +32,17 @@ class HabitStorage {
             return []
         }
     }
+    
+    func getHabits(byFrequency frequency: HabitFrequency) -> [Habit] {
+        return load().filter { $0.frequency == frequency }
+    }
+    
+    func getHabitsNearingGoal() -> [Habit] {
+        let habits = load()
+        return habits.filter {
+            guard $0.targetCompletionCount > 0 else { return false }
+            let ratio = Double($0.completionHistory.count) / Double($0.targetCompletionCount)
+            return ratio >= 0.8 && ratio < 1.0
+        }
+    }
 }
